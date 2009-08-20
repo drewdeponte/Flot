@@ -75,7 +75,8 @@
                         fill: true,
                         fillColor: null,
                         align: "left", // or "center" 
-                        horizontal: false // when horizontal, left is now top
+                        horizontal: false, // when horizontal, left is now top
+                        series_spread: false // display series side by side
                     },
                     shadowSize: 3
                 },
@@ -1024,7 +1025,7 @@
                 drawGrid();
 
             for (var i = 0; i < series.length; ++i)
-                drawSeries(series[i]);
+                drawSeries(series[i], i, series.length);
 
             executeHooks(hooks.draw, [ctx]);
             
@@ -1230,11 +1231,11 @@
             placeholder.append(html.join(""));
         }
 
-        function drawSeries(series) {
+        function drawSeries(series, series_index, series_length) {
             if (series.lines.show)
                 drawSeriesLines(series);
             if (series.bars.show)
-                drawSeriesBars(series);
+                drawSeriesBars(series, series_index, series_length);
             if (series.points.show)
                 drawSeriesPoints(series);
         }
@@ -1533,7 +1534,7 @@
             ctx.restore();
         }
 
-        function drawBar(x, y, b, barLeft, barRight, offset, fillStyleCallback, axisx, axisy, c, horizontal) {
+        function drawBar(x, y, b, barLeft, barRight, yoffset, x_line_adjustment, fillStyleCallback, axisx, axisy, c, horizontal) {
             var left, right, bottom, top,
                 drawLeft, drawRight, drawTop, drawBottom,
                 tmp;
@@ -1613,53 +1614,74 @@
                 c.fillStyle = fillStyleCallback(bottom, top);
                 c.fill();
             }
+            
+            if (yoffset) {
+                bottom += yoffset;
+                top += yoffset;
+            }
+            
+            if (x_line_adjustment) {
+                left += x_line_adjustment;
+                right -= x_line_adjustment;
+            }
 
             // draw outline
             if (drawLeft || drawRight || drawTop || drawBottom) {
                 c.beginPath();
 
                 // FIXME: inline moveTo is buggy with excanvas
-                c.moveTo(left, bottom + offset);
+                c.moveTo(left, bottom);
                 if (drawLeft)
-                    c.lineTo(left, top + offset);
+                    c.lineTo(left, top);
                 else
-                    c.moveTo(left, top + offset);
+                    c.moveTo(left, top);
                 if (drawTop)
-                    c.lineTo(right, top + offset);
+                    c.lineTo(right, top);
                 else
-                    c.moveTo(right, top + offset);
+                    c.moveTo(right, top);
                 if (drawRight)
-                    c.lineTo(right, bottom + offset);
+                    c.lineTo(right, bottom);
                 else
-                    c.moveTo(right, bottom + offset);
+                    c.moveTo(right, bottom);
                 if (drawBottom)
-                    c.lineTo(left, bottom + offset);
+                    c.lineTo(left, bottom);
                 else
-                    c.moveTo(left, bottom + offset);
+                    c.moveTo(left, bottom);
                 c.stroke();
             }
         }
         
-        function drawSeriesBars(series) {
-            function plotBars(datapoints, barLeft, barRight, offset, fillStyleCallback, axisx, axisy) {
+        function drawSeriesBars(series, series_index, series_length) {
+            function plotBars(datapoints, barLeft, barRight, yoffset, x_line_adjustment, fillStyleCallback, axisx, axisy) {
                 var points = datapoints.points, ps = datapoints.pointsize;
                 
                 for (var i = 0; i < points.length; i += ps) {
                     if (points[i] == null)
                         continue;
-                    drawBar(points[i], points[i + 1], points[i + 2], barLeft, barRight, offset, fillStyleCallback, axisx, axisy, ctx, series.bars.horizontal);
+                    drawBar(points[i], points[i + 1], points[i + 2], barLeft, barRight, yoffset, x_line_adjustment, fillStyleCallback, axisx, axisy, ctx, series.bars.horizontal);
                 }
             }
 
             ctx.save();
             ctx.translate(plotOffset.left, plotOffset.top);
-
+            
             // FIXME: figure out a way to add shadows (for instance along the right edge)
             ctx.lineWidth = series.bars.lineWidth;
             ctx.strokeStyle = series.color;
             var barLeft = series.bars.align == "left" ? 0 : -series.bars.barWidth/2;
+            
+            if (series.bars.series_spread) {
+                var actualBarWidth = ((1.0/series_length) * (series.bars.barWidth));
+                barLeft = barLeft + (series_index * actualBarWidth);
+            }
+            
             var fillStyleCallback = series.bars.fill ? function (bottom, top) { return getFillStyle(series.bars, series.color, bottom, top); } : null;
-            plotBars(series.datapoints, barLeft, barLeft + series.bars.barWidth, 0, fillStyleCallback, series.xaxis, series.yaxis);
+            
+            if (series.bars.series_spread) {
+                plotBars(series.datapoints, barLeft, barLeft + actualBarWidth, 0, series.bars.lineWidth, fillStyleCallback, series.xaxis, series.yaxis);                
+            } else {
+                plotBars(series.datapoints, barLeft, barLeft + series.bars.barWidth, 0, 0, fillStyleCallback, series.xaxis, series.yaxis);
+            }
             ctx.restore();
         }
 
@@ -1809,6 +1831,12 @@
                 if (s.bars.show && !item) { // no other point can be nearby
                     var barLeft = s.bars.align == "left" ? 0 : -s.bars.barWidth/2,
                         barRight = barLeft + s.bars.barWidth;
+                    
+                    if (s.bars.series_spread) {
+                        var actualBarWidth = ((1.0/series.length) * (s.bars.barWidth));
+                        barLeft = barLeft + (i * actualBarWidth);
+                        barRight = barLeft + actualBarWidth;
+                    }
                     
                     for (j = 0; j < points.length; j += ps) {
                         var x = points[j], y = points[j + 1], b = points[j + 2];
