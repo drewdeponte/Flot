@@ -2047,6 +2047,15 @@
             return -1;
         }
         
+        function indexOfSeries(s) {
+            for (var i = 0; i < series.length; ++i) {
+                var os = series[i];
+                if (os == s)
+                    return i;
+            }
+            return -1;
+        }
+                
         function drawPointHighlight(series, point) {
             var x = point[0], y = point[1],
                 axisx = series.xaxis, axisy = series.yaxis;
@@ -2068,8 +2077,22 @@
             octx.strokeStyle = parseColor(series.color).scale(1, 1, 1, 0.5).toString();
             var fillStyle = parseColor(series.color).scale(1, 1, 1, 0.5).toString();
             var barLeft = series.bars.align == "left" ? 0 : -series.bars.barWidth/2;
-            drawBar(point[0], point[1], point[2] || 0, barLeft, barLeft + series.bars.barWidth,
-                    0, function () { return fillStyle; }, series.xaxis, series.yaxis, octx, series.bars.horizontal);
+            
+            
+            if (series.bars.series_spread) {
+                s = plot.getData();
+                series_index = indexOfSeries(series);
+                var actualBarWidth = ((1.0/s.length) * (series.bars.barWidth));
+                barLeft = barLeft + (series_index * actualBarWidth);
+            }
+
+            if (series.bars.series_spread) {
+                drawBar(point[0], point[1], point[2] || 0, barLeft, barLeft + actualBarWidth,
+                    0, series.bars.lineWidth, function () { return fillStyle; }, series.xaxis, series.yaxis, octx, series.bars.horizontal);
+            } else {
+                drawBar(point[0], point[1], point[2] || 0, barLeft, barLeft + series.bars.barWidth,
+                    0, 0, function () { return fillStyle; }, series.xaxis, series.yaxis, octx, series.bars.horizontal);
+            }
         }
 
         function getSelection() {
