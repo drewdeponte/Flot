@@ -1025,7 +1025,7 @@
                 drawGrid();
 
             for (var i = 0; i < series.length; ++i)
-                drawSeries(series[i], i, series.length);
+                drawSeries(series[i]);
 
             executeHooks(hooks.draw, [ctx]);
             
@@ -1231,11 +1231,11 @@
             placeholder.append(html.join(""));
         }
 
-        function drawSeries(series, series_index, series_length) {
+        function drawSeries(series) {
             if (series.lines.show)
                 drawSeriesLines(series);
             if (series.bars.show)
-                drawSeriesBars(series, series_index, series_length);
+                drawSeriesBars(series);
             if (series.points.show)
                 drawSeriesPoints(series);
         }
@@ -1651,7 +1651,7 @@
             }
         }
         
-        function drawSeriesBars(series, series_index, series_length) {
+        function drawSeriesBars(series) {
             function plotBars(datapoints, barLeft, barRight, yoffset, x_line_adjustment, fillStyleCallback, axisx, axisy) {
                 var points = datapoints.points, ps = datapoints.pointsize;
                 
@@ -1671,6 +1671,8 @@
             var barLeft = series.bars.align == "left" ? 0 : -series.bars.barWidth/2;
             
             if (series.bars.series_spread) {
+                var series_index = indexOfSeries(series);
+                var series_length = plot.getData().length;
                 var actualBarWidth = ((1.0/series_length) * (series.bars.barWidth));
                 barLeft = barLeft + (series_index * actualBarWidth);
             }
